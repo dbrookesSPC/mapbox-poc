@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
 
 abstract class PolygonsState extends Equatable {
   const PolygonsState();
@@ -13,8 +13,8 @@ class PolygonsInitial extends PolygonsState {}
 class PolygonsLoading extends PolygonsState {}
 
 class PolygonsReady extends PolygonsState {
-  final List<Position> tapPositions;
-  final List<Map<String, dynamic>> polygonFeatures;
+  final List<GeoCoordinates> tapPositions;
+  final List<PolygonData> polygonFeatures;
 
   const PolygonsReady({
     required this.tapPositions,
@@ -26,9 +26,9 @@ class PolygonsReady extends PolygonsState {
 }
 
 class PointAdded extends PolygonsState {
-  final List<Position> tapPositions;
-  final Position newPosition;
-  final List<Map<String, dynamic>> polygonFeatures;
+  final List<GeoCoordinates> tapPositions;
+  final GeoCoordinates newPosition;
+  final List<PolygonData> polygonFeatures;
 
   const PointAdded({
     required this.tapPositions,
@@ -41,8 +41,8 @@ class PointAdded extends PolygonsState {
 }
 
 class PolygonCreated extends PolygonsState {
-  final List<Position> tapPositions;
-  final List<Map<String, dynamic>> polygonFeatures;
+  final List<GeoCoordinates> tapPositions;
+  final List<PolygonData> polygonFeatures;
   final String polygonName;
 
   const PolygonCreated({
@@ -56,9 +56,9 @@ class PolygonCreated extends PolygonsState {
 }
 
 class PolygonTapped extends PolygonsState {
-  final List<Position> tapPositions;
-  final List<Map<String, dynamic>> polygonFeatures;
-  final Map<String, dynamic> tappedPolygon;
+  final List<GeoCoordinates> tapPositions;
+  final List<PolygonData> polygonFeatures;
+  final PolygonData tappedPolygon;
 
   const PolygonTapped({
     required this.tapPositions,
@@ -79,4 +79,20 @@ class PolygonsError extends PolygonsState {
 
   @override
   List<Object> get props => [error];
+}
+
+// Helper class to store polygon data
+class PolygonData extends Equatable {
+  final String id;
+  final String name;
+  final List<GeoCoordinates> coordinates;
+
+  const PolygonData({
+    required this.id,
+    required this.name,
+    required this.coordinates,
+  });
+
+  @override
+  List<Object> get props => [id, name, coordinates];
 }

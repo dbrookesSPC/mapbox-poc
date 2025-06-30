@@ -1,5 +1,7 @@
 PODS:
   - Flutter (1.0.0)
+  - here_sdk (4.22.5.0.197265.release):
+    - Flutter
   - mapbox_maps_flutter (2.8.0):
     - Flutter
     - MapboxMaps (= 11.12.0)
@@ -13,10 +15,14 @@ PODS:
     - MapboxCoreMaps (= 11.12.0)
     - Turf (= 4.0.0)
   - Turf (4.0.0)
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
+  - here_sdk (from `.symlinks/plugins/here_sdk/ios`)
   - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -28,17 +34,23 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
+  here_sdk:
+    :path: ".symlinks/plugins/here_sdk/ios"
   mapbox_maps_flutter:
     :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  here_sdk: e5da1521e9261d850c7ae9e539d3b9b2a97367c4
   mapbox_maps_flutter: d2baa706ab3c1e5ec304ee1e011f25449f754746
   MapboxCommon: 5be9807f4d03e616ecf470ab8202f0d88ecbd459
   MapboxCoreMaps: 036e9ce8711450a368304e30adc0156383357096
   MapboxMaps: 9539e2193f6723b3179d1e8243aac5abf9b0e365
   Turf: c9eb11a65d96af58cac523460fd40fec5061b081
+  url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
-PODFILE CHECKSUM: e30f02f9d1c72c47bb6344a0a748c9d268180865
+PODFILE CHECKSUM: 53a6aebc29ccee84c41f92f409fc20cd4ca011f1
 
 COCOAPODS: 1.16.2

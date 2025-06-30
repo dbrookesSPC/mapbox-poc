@@ -1,23 +1,19 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
+import 'package:here_sdk/mapview.dart';
 import 'polygons.events.dart';
 import 'polygons.state.dart';
 
 class PolygonsBloc extends Bloc<PolygonsEvent, PolygonsState> {
-  static const String _sourceId = "polygon";
-  static const String _fillLayerId = "fill-layer2";
-  static const String _lineLayerId = "outline-layer2";
-
-  Uint8List? _annotationImage;
-  final List<Position> _tapPositions = [];
-  final List<Map<String, dynamic>> _polygonFeatures = [];
+  MapImage? _annotationImage;
+  final List<GeoCoordinates> _tapPositions = [];
+  final List<PolygonData> _polygonFeatures = [];
+  final List<MapMarker> _pointMarkers = [];
+  final List<MapPolygon> _mapPolygons = [];
   final Random _rnd = Random();
-  GeoJsonSource? _geoJsonSource;
 
   final List<String> _adjectives = [
     'Ancient', 'Misty', 'Silent', 'Red', 'Golden', 'Hidden', 'Lonely', 'Flying'
@@ -41,49 +37,10 @@ class PolygonsBloc extends Bloc<PolygonsEvent, PolygonsState> {
     try {
       emit(PolygonsLoading());
 
-      // Load the annotation image
-      final ByteData bytes = await rootBundle.load('assets/ano.png');
-      _annotationImage = bytes.buffer.asUint8List();
-
-      // Initialize empty GeoJSON source
-      final emptyCollection = {"type": "FeatureCollection", "features": []};
-      _geoJsonSource = GeoJsonSource(
-        id: _sourceId,
-        data: json.encode(emptyCollection),
-      );
-
-      // Add source and layers to map
-      await event.mapboxMap.style.addSource(_geoJsonSource!);
-
-      await event.mapboxMap.style.addLayer(
-        FillLayer(
-          id: _fillLayerId,
-          sourceId: _sourceId,
-          fillColor: const Color.fromARGB(151, 250, 0, 0).value,
-        ),
-      );
-
-      await event.mapboxMap.style.addLayer(
-        LineLayer(
-          id: _lineLayerId,
-          sourceId: _sourceId,
-          lineColor: const Color(0xFF0000FF).value,
-          lineWidth: 2.0,
-        ),
-      );
-
-      // Add tap interaction for polygons
-      final tapInteraction = TapInteraction(
-        FeaturesetDescriptor(layerId: _fillLayerId),
-        (feature, context) async {
- var featureId = feature.id.toString();
-        // Handle tap when a feature from "polygons" is tapped.
-        print("Tapped feature: $featureId");
-        print("Tapped feature properties: ${feature.properties}");
-        print("Tapped feature name: ${feature.properties['name']}");
-        print("Tapped feature coordinates: ${feature.geometry.toString()}");        },
-      );
-      event.mapboxMap.addInteraction(tapInteraction);
+      // Load the annotation image for HERE Maps
+      int imageWidth = 120;
+      int imageHeight = 120;
+      _annotationImage = MapImage.withFilePathAndWidthAndHeight("assets/ano.png", imageWidth, imageHeight);
 
       emit(PolygonsReady(
         tapPositions: List.from(_tapPositions),
@@ -104,22 +61,21 @@ class PolygonsBloc extends Bloc<PolygonsEvent, PolygonsState> {
         return;
       }
 
-      final position = Position(event.lng, event.lat);
-      final opts = PointAnnotationOptions(
-        geometry: Point(coordinates: position),
-        image: _annotationImage,
-        iconSize: 0.4,
-      );
+      final coordinates = GeoCoordinates(event.lat, event.lng);
 
-      // Create the annotation on the map
-      await event.pointAnnotationManager.create(opts);
-
-      // Add to our local list
-      _tapPositions.add(position);
+      // Create HERE map marker for the point
+      final mapMarker = MapMarker(coordinates, _annotationImage!);
+      
+      // Add to the map scene
+      event.hereMapController.mapScene.addMapMarker(mapMarker);
+      
+      // Add to our local lists
+      _tapPositions.add(coordinates);
+      _pointMarkers.add(mapMarker);
 
       emit(PointAdded(
         tapPositions: List.from(_tapPositions),
-        newPosition: position,
+        newPosition: coordinates,
         polygonFeatures: List.from(_polygonFeatures),
       ));
     } catch (e) {
@@ -137,42 +93,58 @@ class PolygonsBloc extends Bloc<PolygonsEvent, PolygonsState> {
         return;
       }
 
-      // Build a closed ring
-      final ring = _tapPositions.map((p) => [p.lng, p.lat]).toList()
-        ..add([_tapPositions.first.lng, _tapPositions.first.lat]);
+      final polygonName = _generateRandomName();
+      
+      // Create MapPolygon using HERE SDK
+      MapPolygon? mapPolygon = _createMapPolygon(_tapPositions);
+      
+      if (mapPolygon != null) {
+        // Add polygon to map
+        event.hereMapController.mapScene.addMapPolygon(mapPolygon);
+        _mapPolygons.add(mapPolygon);
 
-      final featureName = _generateRandomName();
+        // Store polygon data
+        final polygonData = PolygonData(
+          id: polygonName,
+          name: polygonName,
+          coordinates: List.from(_tapPositions),
+        );
+        _polygonFeatures.add(polygonData);
 
-      final feature = {
-        "type": "Feature",
-        "id": featureName,
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [ring],
-        },
-        "properties": {"name": featureName},
-      };
+        // Clear point markers from map
+        for (MapMarker marker in _pointMarkers) {
+          event.hereMapController.mapScene.removeMapMarker(marker);
+        }
+        _pointMarkers.clear();
+        _tapPositions.clear();
 
-      _polygonFeatures.add(feature);
-
-      // Update the GeoJSON source
-      final fc = {
-        "type": "FeatureCollection",
-        "features": _polygonFeatures,
-      };
-      await _geoJsonSource?.updateGeoJSON(json.encode(fc));
-
-      // Clear annotations and tap positions
-      await event.pointAnnotationManager.deleteAll();
-      _tapPositions.clear();
-
-      emit(PolygonCreated(
-        tapPositions: List.from(_tapPositions),
-        polygonFeatures: List.from(_polygonFeatures),
-        polygonName: featureName,
-      ));
+        emit(PolygonCreated(
+          tapPositions: List.from(_tapPositions),
+          polygonFeatures: List.from(_polygonFeatures),
+          polygonName: polygonName,
+        ));
+      } else {
+        emit(const PolygonsError(error: 'Failed to create polygon geometry'));
+      }
     } catch (e) {
       emit(PolygonsError(error: 'Failed to create polygon: $e'));
+    }
+  }
+
+  MapPolygon? _createMapPolygon(List<GeoCoordinates> coordinates) {
+    try {
+      // Create polygon from coordinates
+      GeoPolygon geoPolygon = GeoPolygon(coordinates);
+      
+      // Use a semi-transparent fill color (similar to the original)
+      Color fillColor = const Color.fromARGB(151, 250, 0, 0);
+      MapPolygon mapPolygon = MapPolygon(geoPolygon, fillColor);
+      
+      return mapPolygon;
+    } catch (e) {
+      // Less than three vertices or invalid geometry or any other error
+      print('Error creating polygon: $e');
+      return null;
     }
   }
 
@@ -183,7 +155,7 @@ class PolygonsBloc extends Bloc<PolygonsEvent, PolygonsState> {
     emit(PolygonTapped(
       tapPositions: List.from(_tapPositions),
       polygonFeatures: List.from(_polygonFeatures),
-      tappedPolygon: event.feature,
+      tappedPolygon: event.polygonData,
     ));
   }
 
@@ -192,20 +164,23 @@ class PolygonsBloc extends Bloc<PolygonsEvent, PolygonsState> {
     Emitter<PolygonsState> emit,
   ) async {
     try {
-      // Clear annotations
-      if (event.pointAnnotationManager != null) {
-        await event.pointAnnotationManager!.deleteAll();
-      }
-
-      // Clear polygons from map
-      if (_geoJsonSource != null) {
-        final emptyCollection = {"type": "FeatureCollection", "features": []};
-        await _geoJsonSource!.updateGeoJSON(json.encode(emptyCollection));
+      if (event.hereMapController != null) {
+        // Clear point markers
+        for (MapMarker marker in _pointMarkers) {
+          event.hereMapController!.mapScene.removeMapMarker(marker);
+        }
+        
+        // Clear polygons
+        for (MapPolygon polygon in _mapPolygons) {
+          event.hereMapController!.mapScene.removeMapPolygon(polygon);
+        }
       }
 
       // Clear local data
       _tapPositions.clear();
       _polygonFeatures.clear();
+      _pointMarkers.clear();
+      _mapPolygons.clear();
 
       emit(PolygonsCleared());
     } catch (e) {

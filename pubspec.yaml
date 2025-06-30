@@ -33,12 +33,15 @@ dependencies:
   flutter_dotenv: ^5.0.2
   mapbox_maps_flutter: ^2.0.0
   equatable: ^2.0.5
+  flutter_svg: ^2.2.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flutter_bloc: ^9.1.1
-
+  here_sdk:
+    path: plugins/heresdk
+  http: ^1.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -69,6 +72,11 @@ flutter:
     - .env
     - assets/ano.png
     - assets/cluster/
+    - assets/ano.png
+    - assets/herd.svg
+    - assets/speech_bubble.svg
+    - assets/cow_icon.svg
+    - assets/spinner_icon.svg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

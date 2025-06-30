@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:here_sdk/core.dart';
 
 abstract class ManyMarkersState extends Equatable {
   const ManyMarkersState();
@@ -14,27 +15,31 @@ class ManyMarkersLoading extends ManyMarkersState {}
 class ManyMarkersGenerating extends ManyMarkersState {
   final int generatedCount;
   final int totalCount;
+  final String type; // "markers" or "widgets"
 
   const ManyMarkersGenerating({
     required this.generatedCount,
     required this.totalCount,
+    required this.type,
   });
 
   @override
-  List<Object> get props => [generatedCount, totalCount];
+  List<Object> get props => [generatedCount, totalCount, type];
 }
 
 class ManyMarkersLoaded extends ManyMarkersState {
-  final Map<String, dynamic> geoJsonData;
+  final List<GeoCoordinates> markerPositions;
   final int markerCount;
+  final String type; // "markers" or "widgets"
 
   const ManyMarkersLoaded({
-    required this.geoJsonData,
+    required this.markerPositions,
     required this.markerCount,
+    required this.type,
   });
 
   @override
-  List<Object> get props => [geoJsonData, markerCount];
+  List<Object> get props => [markerPositions, markerCount, type];
 }
 
 class ManyMarkersError extends ManyMarkersState {

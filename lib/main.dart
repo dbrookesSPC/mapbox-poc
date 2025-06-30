@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
+import 'package:here_sdk/core.engine.dart';
+import 'package:here_sdk/core.errors.dart';
+import 'package:here_sdk/mapview.dart';
+import 'package:here_sdk/gestures.dart';
 import 'dart:typed_data';
-import 'dart:math'; // ← add
-import 'package:flutter/material.dart';
+import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
@@ -10,42 +13,45 @@ import 'dart:async';
 
 import 'package:maps_poc/home.dart';
 
-
 void main() async {
   await dotenv.load(fileName: ".env");
   WidgetsFlutterBinding.ensureInitialized();
-  String ACCESS_TOKEN = dotenv.env['ACCESS_TOKEN']!;
-  MapboxOptions.setAccessToken(ACCESS_TOKEN);
+  
+  // Initialize HERE SDK instead of Mapbox
+  await _initializeHERESDK();
+  
   runApp(const MyApp());
+}
+
+Future<void> _initializeHERESDK() async {
+  // Needs to be called before accessing SDKOptions to load necessary libraries.
+  SdkContext.init(IsolateOrigin.main);
+
+  // Set your credentials for the HERE SDK.
+  String accessKeyId = dotenv.env['HERE_ACCESS_KEY_ID'] ?? "";
+  String accessKeySecret = dotenv.env['HERE_ACCESS_KEY_SECRET'] ?? "";
+  
+  AuthenticationMode authenticationMode = AuthenticationMode.withKeySecret(accessKeyId, accessKeySecret);
+  SDKOptions sdkOptions = SDKOptions.withAuthenticationMode(authenticationMode);
+
+  try {
+    await SDKNativeEngine.makeSharedInstance(sdkOptions);
+  } on InstantiationException {
+    throw Exception("Failed to initialize the HERE SDK.");
+  }
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home:  MyHomePage(),
+      home: MyHomePage(),
     );
   }
 }

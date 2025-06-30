@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
 
 abstract class AnnotationsState extends Equatable {
   const AnnotationsState();
@@ -13,7 +13,7 @@ class AnnotationsInitial extends AnnotationsState {}
 class AnnotationsLoading extends AnnotationsState {}
 
 class AnnotationsReady extends AnnotationsState {
-  final List<Position> tapPositions;
+  final List<GeoCoordinates> tapPositions;
 
   const AnnotationsReady({required this.tapPositions});
 
@@ -22,8 +22,8 @@ class AnnotationsReady extends AnnotationsState {
 }
 
 class AnnotationAdded extends AnnotationsState {
-  final List<Position> tapPositions;
-  final Position newPosition;
+  final List<GeoCoordinates> tapPositions;
+  final GeoCoordinates newPosition;
 
   const AnnotationAdded({
     required this.tapPositions,

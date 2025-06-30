@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/mapview.dart';
 
 abstract class AnnotationsEvent extends Equatable {
   const AnnotationsEvent();
@@ -9,34 +9,34 @@ abstract class AnnotationsEvent extends Equatable {
 }
 
 class InitializeAnnotations extends AnnotationsEvent {
-  final PointAnnotationManager pointAnnotationManager;
+  final HereMapController hereMapController;
 
-  const InitializeAnnotations({required this.pointAnnotationManager});
+  const InitializeAnnotations({required this.hereMapController});
 
   @override
-  List<Object> get props => [pointAnnotationManager];
+  List<Object> get props => [hereMapController];
 }
 
 class AddAnnotation extends AnnotationsEvent {
   final double lng;
   final double lat;
-  final PointAnnotationManager pointAnnotationManager;
+  final HereMapController hereMapController;
 
   const AddAnnotation({
     required this.lng,
     required this.lat,
-    required this.pointAnnotationManager,
+    required this.hereMapController,
   });
 
   @override
-  List<Object> get props => [lng, lat, pointAnnotationManager];
+  List<Object> get props => [lng, lat, hereMapController];
 }
 
 class ClearAnnotations extends AnnotationsEvent {
-  final PointAnnotationManager? pointAnnotationManager;
+  final HereMapController? hereMapController;
 
-  const ClearAnnotations({this.pointAnnotationManager});
+  const ClearAnnotations({this.hereMapController});
 
   @override
-  List<Object?> get props => [pointAnnotationManager];
+  List<Object?> get props => [hereMapController];
 }

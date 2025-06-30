@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maps_poc/page.dart';
 import 'package:maps_poc/pages/annotations/annotations.dart';
 import 'package:maps_poc/pages/polygons/polygons.dart';
-import 'package:maps_poc/pages/clusters.dart';
+import 'package:maps_poc/pages/clusters/clusters.dart';
 import 'package:maps_poc/pages/offline/offline_mode.dart';
 import 'package:maps_poc/pages/markers/many_markers.dart';
 

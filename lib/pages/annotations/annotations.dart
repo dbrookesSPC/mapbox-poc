@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
+import 'package:here_sdk/gestures.dart';
 import 'package:maps_poc/basicMap.dart';
 import 'package:maps_poc/page.dart';
 import 'package:maps_poc/pages/annotations/annotations.bloc.dart';
@@ -38,7 +39,7 @@ class _AnnotationMap extends SimpleMapState {
 
   void _clearAnnotations() {
     _annotationsBloc.add(ClearAnnotations(
-      pointAnnotationManager: pointAnnotationManager,
+      hereMapController: hereMapController,
     ));
   }
 
@@ -48,7 +49,7 @@ class _AnnotationMap extends SimpleMapState {
       value: _annotationsBloc,
       child: Stack(
         children: [
-          super.build(context), // MapWidget
+          super.build(context), // HereMap
           
           // Instructions Card
           Positioned(
@@ -147,7 +148,7 @@ class _AnnotationMap extends SimpleMapState {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Annotation added at ${state.newPosition.lat.toStringAsFixed(4)}, ${state.newPosition.lng.toStringAsFixed(4)}',
+                      'Annotation added at ${state.newPosition.latitude.toStringAsFixed(4)}, ${state.newPosition.longitude.toStringAsFixed(4)}',
                     ),
                     duration: const Duration(seconds: 1),
                     backgroundColor: Colors.green,
@@ -195,25 +196,29 @@ class _AnnotationMap extends SimpleMapState {
   onMapCreated() async {
     super.onMapCreated();
     
-    // Initialize annotations once the point annotation manager is ready
-    if (pointAnnotationManager != null) {
+    // Initialize annotations once the HERE map controller is ready
+    if (hereMapController != null) {
       _annotationsBloc.add(InitializeAnnotations(
-        pointAnnotationManager: pointAnnotationManager!,
+        hereMapController: hereMapController!,
       ));
+      
+      // Set up tap gesture listener
+      hereMapController!.gestures.tapListener = MapTapListener((geoCoordinates) {
+        if (geoCoordinates != null) {
+          onTapListener(geoCoordinates);
+        }
+      }, hereMapController);
     }
   }
 
   @override
-  Future<void> onTapListener(MapContentGestureContext context) async {
+  Future<void> onTapListener(GeoCoordinates? coordinates) async {
     // Handle tap events through the BLoC
-    final lng = context.point.coordinates.lng;
-    final lat = context.point.coordinates.lat;
-    
-    if (pointAnnotationManager != null) {
+    if (coordinates != null && hereMapController != null) {
       _annotationsBloc.add(AddAnnotation(
-        lng: lng.toDouble(),
-        lat: lat.toDouble(),
-        pointAnnotationManager: pointAnnotationManager!,
+        lng: coordinates.longitude,
+        lat: coordinates.latitude,
+        hereMapController: hereMapController!,
       ));
     }
   }

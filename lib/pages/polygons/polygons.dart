@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
+import 'package:here_sdk/gestures.dart';
+import 'package:here_sdk/mapview.dart';
 import 'package:maps_poc/basicMap.dart';
 import 'package:maps_poc/page.dart';
 import 'package:maps_poc/pages/polygons/polygons.bloc.dart';
-import 'package:maps_poc/pages/polygons/polygons.events.dart';
+import 'package:maps_poc/pages/polygons/polygons.events.dart' as events;
 import 'package:maps_poc/pages/polygons/polygons.state.dart';
 
 class Polygons extends StatefulWidget implements PocPage {
@@ -37,9 +39,8 @@ class _PolygonMap extends SimpleMapState {
   }
 
   void _clearAll() {
-    _polygonsBloc.add(ClearAll(
-      mapboxMap: mapboxMap,
-      pointAnnotationManager: pointAnnotationManager,
+    _polygonsBloc.add(events.ClearAll(
+      hereMapController: hereMapController,
     ));
   }
 
@@ -49,7 +50,7 @@ class _PolygonMap extends SimpleMapState {
       value: _polygonsBloc,
       child: Stack(
         children: [
-          super.build(context), // MapWidget
+          super.build(context), // HereMap
           
           // Instructions Card
           Positioned(
@@ -117,7 +118,7 @@ class _PolygonMap extends SimpleMapState {
                         ? state.tapPositions
                         : state is PolygonCreated
                             ? state.tapPositions
-                            : <Position>[];
+                            : <GeoCoordinates>[];
 
                 final polygonFeatures = state is PolygonsReady 
                     ? state.polygonFeatures
@@ -125,7 +126,7 @@ class _PolygonMap extends SimpleMapState {
                         ? state.polygonFeatures
                         : state is PolygonCreated
                             ? state.polygonFeatures
-                            : <Map<String, dynamic>>[];
+                            : <PolygonData>[];
 
                 if (tapPositions.isNotEmpty || polygonFeatures.isNotEmpty) {
                   return Positioned(
@@ -190,18 +191,18 @@ class _PolygonMap extends SimpleMapState {
                   ),
                 );
               } else if (state is PolygonTapped) {
-                final name = state.tappedPolygon['properties']?['name'] ?? 'Unknown';
+                final name = state.tappedPolygon.name;
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: Text('Polygon Details'),
+                    title: const Text('Polygon Details'),
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Name: $name'),
-                        Text('ID: ${state.tappedPolygon['id']}'),
-                        Text('Type: ${state.tappedPolygon['geometry']?['type']}'),
+                        Text('ID: ${state.tappedPolygon.id}'),
+                        Text('Points: ${state.tappedPolygon.coordinates.length}'),
                       ],
                     ),
                     actions: [
@@ -254,38 +255,61 @@ class _PolygonMap extends SimpleMapState {
   onMapCreated() async {
     super.onMapCreated();
     
-    // Initialize polygons once the map and managers are ready
-    if (mapboxMap != null && pointAnnotationManager != null) {
-      _polygonsBloc.add(InitializePolygons(
-        mapboxMap: mapboxMap!,
-        pointAnnotationManager: pointAnnotationManager!,
+    // Initialize polygons once the HERE map controller is ready
+    if (hereMapController != null) {
+      _polygonsBloc.add(events.InitializePolygons(
+        hereMapController: hereMapController!,
+      ));
+      
+      // Set up tap gesture listener
+      hereMapController!.gestures.tapListener = MapTapListener((geoCoordinates) {
+        if (geoCoordinates != null) {
+          onTapListener(geoCoordinates);
+        }
+      }, hereMapController);
+
+      // Set up long tap gesture listener
+      hereMapController!.gestures.longPressListener = PolygonMapLongPressListener((geoCoordinates) {
+        if (geoCoordinates != null) {
+          onLongTapListener(geoCoordinates);
+        }
+      }, hereMapController);
+    }
+  }
+
+  @override
+  Future<void> onTapListener(GeoCoordinates? coordinates) async {
+    // Handle tap events through the BLoC to add points
+    if (coordinates != null && hereMapController != null) {
+      _polygonsBloc.add(events.AddPoint(
+        lng: coordinates.longitude,
+        lat: coordinates.latitude,
+        hereMapController: hereMapController!,
       ));
     }
   }
 
   @override
-  Future<void> onTapListener(MapContentGestureContext context) async {
-    // Handle tap events through the BLoC
-    final lng = context.point.coordinates.lng;
-    final lat = context.point.coordinates.lat;
-    
-    if (pointAnnotationManager != null) {
-      _polygonsBloc.add(AddPoint(
-        lng: lng.toDouble(),
-        lat: lat.toDouble(),
-        pointAnnotationManager: pointAnnotationManager!,
-      ));
-    }
-  }
-
-  @override
-  Future<void> onLongTapListener(MapContentGestureContext context) async {
+  Future<void> onLongTapListener(GeoCoordinates? coordinates) async {
     // Handle long tap to create polygon
-    if (mapboxMap != null && pointAnnotationManager != null) {
-      _polygonsBloc.add(CreatePolygon(
-        mapboxMap: mapboxMap!,
-        pointAnnotationManager: pointAnnotationManager!,
+    if (hereMapController != null) {
+      _polygonsBloc.add(events.CreatePolygon(
+        hereMapController: hereMapController!,
       ));
     }
+  }
+}
+
+// Helper class for long press handling - moved outside the class
+class PolygonMapLongPressListener implements LongPressListener {
+  final Function(GeoCoordinates?) onLongPressCallback;
+  final HereMapController? mapController;
+  
+  PolygonMapLongPressListener(this.onLongPressCallback, this.mapController);
+  
+  @override
+  void onLongPress(GestureState gestureState, Point2D origin) {
+    GeoCoordinates? geoCoordinates = mapController?.viewToGeoCoordinates(origin);
+    onLongPressCallback(geoCoordinates);
   }
 }

@@ -2,13 +2,15 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/core.dart';
+import 'package:here_sdk/mapview.dart';
 import 'annotations.events.dart';
 import 'annotations.state.dart';
 
 class AnnotationsBloc extends Bloc<AnnotationsEvent, AnnotationsState> {
-  Uint8List? _annotationImage;
-  final List<Position> _tapPositions = [];
+  MapImage? _annotationImage;
+  final List<GeoCoordinates> _tapPositions = [];
+  final List<MapMarker> _mapMarkers = [];
 
   AnnotationsBloc() : super(AnnotationsInitial()) {
     on<InitializeAnnotations>(_onInitializeAnnotations);
@@ -23,9 +25,10 @@ class AnnotationsBloc extends Bloc<AnnotationsEvent, AnnotationsState> {
     try {
       emit(AnnotationsLoading());
       
-      // Load the annotation image
-      final ByteData bytes = await rootBundle.load('assets/ano.png');
-      _annotationImage = bytes.buffer.asUint8List();
+      // Load the annotation image for HERE Maps
+      int imageWidth = 120;
+      int imageHeight = 120;
+      _annotationImage = MapImage.withFilePathAndWidthAndHeight("assets/ano.png", imageWidth, imageHeight);
       
       emit(AnnotationsReady(tapPositions: List.from(_tapPositions)));
     } catch (e) {
@@ -43,22 +46,21 @@ class AnnotationsBloc extends Bloc<AnnotationsEvent, AnnotationsState> {
         return;
       }
 
-      final position = Position(event.lng, event.lat);
-      final opts = PointAnnotationOptions(
-        geometry: Point(coordinates: position),
-        image: _annotationImage,
-        iconSize: 0.4,
-      );
-
-      // Create the annotation on the map
-      await event.pointAnnotationManager.create(opts);
+      final coordinates = GeoCoordinates(event.lat, event.lng);
       
-      // Add to our local list
-      _tapPositions.add(position);
+      // Create HERE map marker
+      final mapMarker = MapMarker(coordinates, _annotationImage!);
+      
+      // Add to the map scene
+      event.hereMapController.mapScene.addMapMarker(mapMarker);
+      
+      // Add to our local lists
+      _tapPositions.add(coordinates);
+      _mapMarkers.add(mapMarker);
 
       emit(AnnotationAdded(
         tapPositions: List.from(_tapPositions),
-        newPosition: position,
+        newPosition: coordinates,
       ));
     } catch (e) {
       emit(AnnotationsError(error: 'Failed to add annotation: $e'));
@@ -70,13 +72,16 @@ class AnnotationsBloc extends Bloc<AnnotationsEvent, AnnotationsState> {
     Emitter<AnnotationsState> emit,
   ) async {
     try {
-      if (event.pointAnnotationManager != null) {
-        // Delete all annotations from the map
-        await event.pointAnnotationManager!.deleteAll();
+      if (event.hereMapController != null) {
+        // Remove all markers from the map scene
+        for (MapMarker marker in _mapMarkers) {
+          event.hereMapController!.mapScene.removeMapMarker(marker);
+        }
       }
       
-      // Clear our local list
+      // Clear our local lists
       _tapPositions.clear();
+      _mapMarkers.clear();
 
       emit(AnnotationsCleared());
     } catch (e) {
@@ -84,5 +89,5 @@ class AnnotationsBloc extends Bloc<AnnotationsEvent, AnnotationsState> {
     }
   }
 
-  List<Position> get tapPositions => List.from(_tapPositions);
+  List<GeoCoordinates> get tapPositions => List.from(_tapPositions);
 }

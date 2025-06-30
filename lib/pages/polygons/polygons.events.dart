@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:here_sdk/mapview.dart';
+import 'polygons.state.dart'; // Import to access PolygonData
 
 abstract class PolygonsEvent extends Equatable {
   const PolygonsEvent();
@@ -9,61 +10,52 @@ abstract class PolygonsEvent extends Equatable {
 }
 
 class InitializePolygons extends PolygonsEvent {
-  final MapboxMap mapboxMap;
-  final PointAnnotationManager pointAnnotationManager;
+  final HereMapController hereMapController;
 
-  const InitializePolygons({
-    required this.mapboxMap,
-    required this.pointAnnotationManager,
-  });
+  const InitializePolygons({required this.hereMapController});
 
   @override
-  List<Object> get props => [mapboxMap, pointAnnotationManager];
+  List<Object> get props => [hereMapController];
 }
 
 class AddPoint extends PolygonsEvent {
   final double lng;
   final double lat;
-  final PointAnnotationManager pointAnnotationManager;
+  final HereMapController hereMapController;
 
   const AddPoint({
     required this.lng,
     required this.lat,
-    required this.pointAnnotationManager,
+    required this.hereMapController,
   });
 
   @override
-  List<Object> get props => [lng, lat, pointAnnotationManager];
+  List<Object> get props => [lng, lat, hereMapController];
 }
 
 class CreatePolygon extends PolygonsEvent {
-  final MapboxMap mapboxMap;
-  final PointAnnotationManager pointAnnotationManager;
+  final HereMapController hereMapController;
 
-  const CreatePolygon({
-    required this.mapboxMap,
-    required this.pointAnnotationManager,
-  });
+  const CreatePolygon({required this.hereMapController});
 
   @override
-  List<Object> get props => [mapboxMap, pointAnnotationManager];
+  List<Object> get props => [hereMapController];
 }
 
 class TapPolygon extends PolygonsEvent {
-  final Map<String, dynamic> feature;
+  final PolygonData polygonData;
 
-  const TapPolygon({required this.feature});
+  const TapPolygon({required this.polygonData});
 
   @override
-  List<Object> get props => [feature];
+  List<Object> get props => [polygonData];
 }
 
 class ClearAll extends PolygonsEvent {
-  final MapboxMap? mapboxMap;
-  final PointAnnotationManager? pointAnnotationManager;
+  final HereMapController? hereMapController;
 
-  const ClearAll({this.mapboxMap, this.pointAnnotationManager});
+  const ClearAll({this.hereMapController});
 
   @override
-  List<Object?> get props => [mapboxMap, pointAnnotationManager];
+  List<Object?> get props => [hereMapController];
 }
