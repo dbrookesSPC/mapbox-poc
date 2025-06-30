@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 abstract class ManyMarkersState extends Equatable {
   const ManyMarkersState();
@@ -25,16 +26,16 @@ class ManyMarkersGenerating extends ManyMarkersState {
 }
 
 class ManyMarkersLoaded extends ManyMarkersState {
-  final Map<String, dynamic> geoJsonData;
+  final List<PointAnnotation> markers;
   final int markerCount;
 
   const ManyMarkersLoaded({
-    required this.geoJsonData,
+    required this.markers,
     required this.markerCount,
   });
 
   @override
-  List<Object> get props => [geoJsonData, markerCount];
+  List<Object> get props => [markers, markerCount];
 }
 
 class ManyMarkersError extends ManyMarkersState {

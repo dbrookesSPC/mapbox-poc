@@ -9,29 +9,27 @@ abstract class ManyMarkersEvent extends Equatable {
 }
 
 class GenerateMarkers extends ManyMarkersEvent {
-  final double centerLng;
-  final double centerLat;
-  final int markerCount;
-  final double spread;
-  final MapboxMap mapboxMap;
+  final int count;
+  final Point? centerCoordinate;
+  final double? zoom;
 
   const GenerateMarkers({
-    required this.centerLng,
-    required this.centerLat,
-    required this.mapboxMap,
-    this.markerCount = 15000,
-    this.spread = 20.0,
+    required this.count,
+    this.centerCoordinate,
+    this.zoom,
   });
 
   @override
-  List<Object> get props => [centerLng, centerLat, mapboxMap, markerCount, spread];
+  List<Object?> get props => [count, centerCoordinate, zoom];
 }
 
-class ClearMarkers extends ManyMarkersEvent {
-  final MapboxMap? mapboxMap;
+class ClearMarkers extends ManyMarkersEvent {}
 
-  const ClearMarkers({this.mapboxMap});
+class InitializeAnnotationManager extends ManyMarkersEvent {
+  final PointAnnotationManager annotationManager;
+
+  const InitializeAnnotationManager({required this.annotationManager});
 
   @override
-  List<Object?> get props => [mapboxMap];
+  List<Object> get props => [annotationManager];
 }
