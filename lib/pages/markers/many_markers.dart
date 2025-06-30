@@ -7,7 +7,7 @@ import 'package:maps_poc/page.dart';
 import 'package:maps_poc/pages/markers/many_markers.bloc.dart';
 import 'package:maps_poc/pages/markers/many_markers.events.dart';
 import 'package:maps_poc/pages/markers/many_markers.state.dart';
-import 'package:maps_poc/pages/markers/coordinate_bound_widget.dart';
+import 'coordinate_bound_widget.dart';
 import 'animated_herd_widget.dart';
 
 class ManyMarkers extends StatefulWidget implements PocPage {
@@ -18,7 +18,7 @@ class ManyMarkers extends StatefulWidget implements PocPage {
   @override
   final String title = 'Many Markers';
   @override
-  final String subtitle = 'Animated herd widgets with SVG assets';
+  final String subtitle = 'Animated herd widgets bound to coordinates';
 
   @override
   State<StatefulWidget> createState() => _ManyMarkersMap();
@@ -27,7 +27,6 @@ class ManyMarkers extends StatefulWidget implements PocPage {
 class _ManyMarkersMap extends SimpleMapState {
   late final ManyMarkersBloc _markersBloc;
   final List<MarkerData> _overlayMarkers = [];
-  bool _useOverlayMode = true; // Toggle between overlay widgets and static images
 
   @override
   void initState() {
@@ -85,8 +84,6 @@ class _ManyMarkersMap extends SimpleMapState {
           longitude: lng,
           herdSize: herdSize,
         ));
-        
-        print('Generated marker $i at: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}');
       }
 
       setState(() {});
@@ -128,30 +125,10 @@ class _ManyMarkersMap extends SimpleMapState {
     setState(() {});
   }
 
-  void _generateStaticMarkers(int count) async {
-    if (mapboxMap == null) return;
-    
-    try {
-      final currentCamera = await mapboxMap!.getCameraState();
-      _markersBloc.add(GenerateMarkers(
-        count: count,
-        centerCoordinate: currentCamera.center,
-        zoom: currentCamera.zoom,
-      ));
-    } catch (e) {
-      // Fallback without camera info
-      _markersBloc.add(GenerateMarkers(count: count));
-    }
-  }
-
   void _clearMarkers() {
-    if (_useOverlayMode) {
-      setState(() {
-        _overlayMarkers.clear();
-      });
-    } else {
-      _markersBloc.add(ClearMarkers());
-    }
+    setState(() {
+      _overlayMarkers.clear();
+    });
   }
 
   @override
@@ -162,14 +139,14 @@ class _ManyMarkersMap extends SimpleMapState {
         children: [
           super.build(context), // MapboxMap
           
-          // Coordinate-bound animated widgets (only in overlay mode)
-          if (_useOverlayMode && mapboxMap != null)
+          // Coordinate-bound animated widgets
+          if (mapboxMap != null)
             ...(_overlayMarkers.map((markerData) => 
               CoordinateBoundWidget(
                 mapboxMap: mapboxMap!,
                 latitude: markerData.latitude,
                 longitude: markerData.longitude,
-                offset: const Offset(-55, -23), // Center the 110x46 widget (110/2 = 55, 46/2 = 23)
+                offset: const Offset(-55, -23), // Center the 110x46 widget
                 child: AnimatedHerdWidget(
                   herdSize: markerData.herdSize,
                   onTap: () => _onMarkerTap(markerData),
@@ -189,137 +166,35 @@ class _ManyMarkersMap extends SimpleMapState {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _useOverlayMode ? 'Animated Widget Overlays' : 'Static Image Markers',
+                      'Animated Coordinate-Bound Widgets',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     
-                    // Mode Toggle
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                _useOverlayMode = true;
-                                _overlayMarkers.clear();
-                              });
-                              _markersBloc.add(ClearMarkers());
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _useOverlayMode ? Colors.blue : null,
-                              foregroundColor: _useOverlayMode ? Colors.white : null,
-                            ),
-                            child: const Text('Overlay Mode'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                _useOverlayMode = false;
-                                _overlayMarkers.clear();
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: !_useOverlayMode ? Colors.blue : null,
-                              foregroundColor: !_useOverlayMode ? Colors.white : null,
-                            ),
-                            child: const Text('Static Mode'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
                     // Display current count and buttons
-                    if (_useOverlayMode) ...[
-                      // Overlay mode UI
-                      if (_overlayMarkers.isNotEmpty) ...[
-                        Text(
-                          '${_overlayMarkers.length} animated widgets displayed',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _clearMarkers,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text('Clear All'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        // Generation buttons for overlay mode
-                        _buildGenerationButtons(true),
-                      ],
-                    ] else ...[
-                      // Static mode UI with BlocBuilder
-                      BlocBuilder<ManyMarkersBloc, ManyMarkersState>(
-                        builder: (context, state) {
-                          if (state is ManyMarkersLoaded) {
-                            return Column(
-                              children: [
-                                Text(
-                                  '${state.markerCount} static markers displayed',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: _clearMarkers,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        child: const Text('Clear All'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          }
-                          
-                          if (state is ManyMarkersGenerating) {
-                            return Column(
-                              children: [
-                                Text(
-                                  'Generating: ${state.generatedCount}/${state.totalCount}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 8),
-                                LinearProgressIndicator(
-                                  value: state.generatedCount / state.totalCount,
-                                ),
-                              ],
-                            );
-                          }
-                          
-                          if (state is ManyMarkersLoading) {
-                            return const Column(
-                              children: [
-                                Text('Loading...'),
-                                SizedBox(height: 8),
-                                CircularProgressIndicator(),
-                              ],
-                            );
-                          }
-                          
-                          // Default state - show generation buttons
-                          return _buildGenerationButtons(false);
-                        },
+                    if (_overlayMarkers.isNotEmpty) ...[
+                      Text(
+                        '${_overlayMarkers.length} animated widgets displayed',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _clearMarkers,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Clear All'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // Generation buttons
+                      _buildGenerationButtons(),
                     ],
                   ],
                 ),
@@ -327,35 +202,42 @@ class _ManyMarkersMap extends SimpleMapState {
             ),
           ),
 
-       
-
-          // Status Messages
-          BlocListener<ManyMarkersBloc, ManyMarkersState>(
-            listener: (context, state) {
-              if (state is ManyMarkersLoaded) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${state.markerCount} static herd markers generated'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } else if (state is ManyMarkersError) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.error),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const SizedBox.shrink(),
-          ),
+          // // Feature info
+          // Positioned(
+          //   top: 200,
+          //   left: 16,
+          //   right: 16,
+          //   child: Card(
+          //     child: Padding(
+          //       padding: const EdgeInsets.all(12.0),
+          //       child: Column(
+          //         mainAxisSize: MainAxisSize.min,
+          //         crossAxisAlignment: CrossAxisAlignment.start,
+          //         children: [
+          //           Text(
+          //             'Features:',
+          //             style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          //               fontWeight: FontWeight.bold,
+          //             ),
+          //           ),
+          //           const SizedBox(height: 4),
+          //           Text('• Live SVG rendering with animations', style: Theme.of(context).textTheme.bodySmall),
+          //           Text('• Rotating spinner animations', style: Theme.of(context).textTheme.bodySmall),
+          //           Text('• Coordinate-bound positioning', style: Theme.of(context).textTheme.bodySmall),
+          //           Text('• Full tap/gesture support', style: Theme.of(context).textTheme.bodySmall),
+          //           Text('• Automatic visibility culling', style: Theme.of(context).textTheme.bodySmall),
+          //           Text('• 60 FPS smooth tracking', style: Theme.of(context).textTheme.bodySmall),
+          //         ],
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
   }
 
-  Widget _buildGenerationButtons(bool isOverlayMode) {
+  Widget _buildGenerationButtons() {
     return Column(
       children: [
         // First row
@@ -363,19 +245,15 @@ class _ManyMarkersMap extends SimpleMapState {
           children: [
             Expanded(
               child: ElevatedButton(
-                onPressed: () => isOverlayMode 
-                    ? _generateOverlayMarkers(10) 
-                    : _generateStaticMarkers(10),
+                onPressed: () => _generateOverlayMarkers(10),
                 child: const Text('10 Herds'),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton(
-                onPressed: () => isOverlayMode 
-                    ? _generateOverlayMarkers(50) 
-                    : _generateStaticMarkers(50),
-                child: const Text('50 Herds'),
+                onPressed: () => _generateOverlayMarkers(25),
+                child: const Text('25 Herds'),
               ),
             ),
           ],
@@ -386,19 +264,15 @@ class _ManyMarkersMap extends SimpleMapState {
           children: [
             Expanded(
               child: ElevatedButton(
-                onPressed: () => isOverlayMode 
-                    ? _generateOverlayMarkers(100) 
-                    : _generateStaticMarkers(100),
-                child: const Text('100 Herds'),
+                onPressed: () => _generateOverlayMarkers(50),
+                child: const Text('50 Herds'),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton(
-                onPressed: () => isOverlayMode 
-                    ? _generateOverlayMarkers(200) 
-                    : _generateStaticMarkers(500),
-                child: Text(isOverlayMode ? '200 Herds' : '500 Herds'),
+                onPressed: () => _generateOverlayMarkers(100),
+                child: const Text('100 Herds'),
               ),
             ),
           ],
@@ -416,7 +290,7 @@ class _ManyMarkersMap extends SimpleMapState {
           'Herd ID: ${markerData.id}\n'
           'Size: ${markerData.herdSize} animals\n'
           'Location: ${markerData.latitude.toStringAsFixed(4)}, ${markerData.longitude.toStringAsFixed(4)}\n'
-          'Mode: ${_useOverlayMode ? "Live animated widget" : "Static image"}'
+          'Type: Live animated widget'
         ),
         actions: [
           TextButton(
@@ -431,13 +305,7 @@ class _ManyMarkersMap extends SimpleMapState {
   @override
   onMapCreated() async {
     super.onMapCreated();
-    
-    // Initialize the annotation manager for static markers
-    if (pointAnnotationManager != null) {
-      _markersBloc.add(InitializeAnnotationManager(
-        annotationManager: pointAnnotationManager!,
-      ));
-    }
+    print("Many Markers map created and ready");
   }
 }
 
