@@ -73,6 +73,10 @@ flutter:
     - assets/speech_bubble.svg
     - assets/cow_icon.svg
     - assets/spinner_icon.svg
+    - assets/test_elements.json
+    - assets/test_elements_large.json
+    - assets/test_elements_1000.json
+    - assets/icons_png/
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

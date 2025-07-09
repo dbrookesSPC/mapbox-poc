@@ -1,5 +1,8 @@
 import 'dart:math';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:maps_poc/basicMap.dart';
@@ -16,9 +19,9 @@ class ManyMarkers extends StatefulWidget implements PocPage {
   @override
   final Widget leading = const Icon(Icons.location_on_outlined);
   @override
-  final String title = 'Many Markers';
+  final String title = 'Performance Test';
   @override
-  final String subtitle = 'Animated herd widgets bound to coordinates';
+  final String subtitle = 'Test 10-100 mixed elements, 1K widgets, or 4K elements';
 
   @override
   State<StatefulWidget> createState() => _ManyMarkersMap();
@@ -125,10 +128,224 @@ class _ManyMarkersMap extends SimpleMapState {
     setState(() {});
   }
 
-  void _clearMarkers() {
+  void _clearMarkers() async {
+    // Clear all annotation types
+    await pointAnnotationManager?.deleteAll();
+    await polygonAnnotationManager?.deleteAll();
+    await polylineAnnotationManager?.deleteAll();
+    
     setState(() {
       _overlayMarkers.clear();
     });
+  }
+
+  Future<void> _loadAndGenerateElements({bool useLargeFile = false, bool use1000File = false}) async {
+    if (mapboxMap == null) return;
+
+    String fileName;
+    if (use1000File) {
+      fileName = 'assets/test_elements_1000.json';
+    } else {
+      fileName = useLargeFile ? 'assets/test_elements_large.json' : 'assets/test_elements.json';
+    }
+    
+    String data = await DefaultAssetBundle.of(context).loadString(fileName);
+    final jsonData = json.decode(data);
+    
+    // Adjust camera based on the number of elements
+    if (use1000File) {
+      await _adjustCameraForElementCount(4050); // 1000 polygons + 2000 markers + 50 widgets + 1000 lines
+    } else if (useLargeFile) {
+      await _adjustCameraForElementCount(220); // approximately 220 total elements
+    } else {
+      await _adjustCameraForElementCount(40); // 10 of each type
+    }
+    
+    // Add polygons as polygon layers
+    await _addPolygons(jsonData['polygons']);
+    
+    // Add markers as point annotations
+    await _addMarkers(jsonData['customMarkers']);
+    
+    // Add widgets as overlay markers
+    await _addWidgets(jsonData['pinnedWidgets']);
+    
+    // Add lines as line layers
+    await _addLines(jsonData['lines']);
+    
+    // Show completion message
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Loaded ${jsonData['polygons'].length} polygons, ${jsonData['customMarkers'].length} markers, ${jsonData['pinnedWidgets'].length} widgets, ${jsonData['lines'].length} lines'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _adjustCameraForElementCount(int totalElements) async {
+    if (mapboxMap == null) return;
+    
+    double zoom;
+    Point center;
+    
+    if (totalElements >= 4000) {
+      zoom = 8.0; // Very wide view for 4000+ elements
+      center = Point(coordinates: Position(13.405, 52.52)); // Berlin center
+    } else if (totalElements >= 1000) {
+      zoom = 9.0; // Wide view for 1000+ elements
+      center = Point(coordinates: Position(13.405, 52.52));
+    } else if (totalElements >= 100) {
+      zoom = 10.0; // Moderate view for 100+ elements
+      center = Point(coordinates: Position(13.381, 52.542));
+    } else {
+      zoom = 12.0; // Closer view for smaller counts
+      center = Point(coordinates: Position(13.381, 52.542));
+    }
+    
+    await mapboxMap!.flyTo(
+      CameraOptions(
+        center: center,
+        zoom: zoom,
+        bearing: 0.0,
+        pitch: 0.0,
+      ),
+      MapAnimationOptions(duration: 1000),
+    );
+  }
+
+  Future<void> _addPolygons(List<dynamic> polygons) async {
+    if (polygonAnnotationManager == null) return;
+    
+    List<PolygonAnnotationOptions> polygonAnnotations = [];
+    
+    for (var polygon in polygons) {
+      final points = polygon['points'] as List<dynamic>;
+      
+      // Convert points to Position objects for Mapbox
+      List<Position> positions = points.map<Position>((point) {
+        return Position(point[1], point[0]); // lng, lat
+      }).toList();
+      
+      // Close the polygon by adding the first point at the end if not already closed
+      if (positions.isNotEmpty && positions.first != positions.last) {
+        positions.add(positions.first);
+      }
+      
+      polygonAnnotations.add(
+        PolygonAnnotationOptions(
+          geometry: Polygon(coordinates: [positions]),
+          fillColor: Colors.blue.withOpacity(0.3).value,
+          fillOutlineColor: Colors.blue.value,
+        ),
+      );
+    }
+    
+    await polygonAnnotationManager!.createMulti(polygonAnnotations);
+    print('Added ${polygons.length} polygons');
+  }
+
+  Future<void> _addMarkers(List<dynamic> markers) async {
+    if (pointAnnotationManager == null) return;
+    
+    List<PointAnnotationOptions> pointAnnotations = [];
+    
+    // Load icon images as bytes
+    Map<String, Uint8List> iconCache = {};
+    
+    for (var marker in markers) {
+      final coords = marker['coordinates'];
+      final markerType = marker['type'] ?? 'restaurant';
+      
+      // Get icon path based on marker type
+      String iconPath = _getIconPath(markerType);
+      
+      // Load icon bytes (cache to avoid loading same icon multiple times)
+      if (!iconCache.containsKey(iconPath)) {
+        final ByteData data = await rootBundle.load(iconPath);
+        iconCache[iconPath] = data.buffer.asUint8List();
+      }
+      
+      pointAnnotations.add(
+        PointAnnotationOptions(
+          geometry: Point(coordinates: Position(coords[1], coords[0])), // lng, lat
+          image: iconCache[iconPath],
+          iconSize: 0.5, // Scale down the icon
+        ),
+      );
+    }
+    
+    await pointAnnotationManager!.createMulti(pointAnnotations);
+    print('Added ${markers.length} markers with custom icons');
+  }
+  
+  String _getIconPath(String markerType) {
+    // Map marker types to available icons
+    switch (markerType) {
+      case 'restaurant':
+        return 'assets/icons_png/restaurant.png';
+      case 'hospital':
+        return 'assets/icons_png/hospital.png';
+      case 'school':
+        return 'assets/icons_png/school.png';
+      case 'park':
+        return 'assets/icons_png/park.png';
+      case 'bank':
+        return 'assets/icons_png/bank.png';
+      case 'shop':
+      case 'gas_station':
+      case 'pharmacy':
+      case 'cafe':
+      case 'hotel':
+      default:
+        return 'assets/icons_png/restaurant.png'; // Default fallback
+    }
+  }
+
+  Future<void> _addWidgets(List<dynamic> widgets) async {
+    // Add widgets as overlay markers (like the existing herd widgets)
+    final Random random = Random();
+    
+    for (int i = 0; i < widgets.length; i++) {
+      final widget = widgets[i];
+      final coords = widget['coordinates'];
+      
+      _overlayMarkers.add(MarkerData(
+        id: i + 1000, // Offset to avoid conflicts
+        latitude: coords[0],
+        longitude: coords[1],
+        herdSize: 1 + random.nextInt(99),
+      ));
+    }
+    
+    setState(() {});
+    print('Added ${widgets.length} overlay widgets');
+  }
+
+  Future<void> _addLines(List<dynamic> lines) async {
+    if (polylineAnnotationManager == null) return;
+    
+    List<PolylineAnnotationOptions> polylineAnnotations = [];
+    
+    for (var line in lines) {
+      final start = line['start'];
+      final end = line['end'];
+      
+      polylineAnnotations.add(
+        PolylineAnnotationOptions(
+          geometry: LineString(coordinates: [
+            Position(start[1], start[0]), // lng, lat
+            Position(end[1], end[0]),     // lng, lat
+          ]),
+          lineColor: Colors.red.value,
+          lineWidth: 2.0,
+        ),
+      );
+    }
+    
+    await polylineAnnotationManager!.createMulti(polylineAnnotations);
+    print('Added ${lines.length} lines');
   }
 
   @override
@@ -166,7 +383,7 @@ class _ManyMarkersMap extends SimpleMapState {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Animated Coordinate-Bound Widgets',
+                      'Performance Test - Mapbox',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
@@ -174,7 +391,7 @@ class _ManyMarkersMap extends SimpleMapState {
                     // Display current count and buttons
                     if (_overlayMarkers.isNotEmpty) ...[
                       Text(
-                        '${_overlayMarkers.length} animated widgets displayed',
+                        '4000 elements displayed',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
@@ -193,8 +410,8 @@ class _ManyMarkersMap extends SimpleMapState {
                         ],
                       ),
                     ] else ...[
-                      // Generation buttons
-                      _buildGenerationButtons(),
+                      // Performance test buttons
+                      _buildPerformanceTestButtons(),
                     ],
                   ],
                 ),
@@ -237,42 +454,62 @@ class _ManyMarkersMap extends SimpleMapState {
     );
   }
 
-  Widget _buildGenerationButtons() {
+  Widget _buildPerformanceTestButtons() {
     return Column(
       children: [
-        // First row
+        // First row - Element tests
         Row(
           children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: () => _generateOverlayMarkers(10),
-                child: const Text('10 Herds'),
+              child: ElevatedButton.icon(
+                onPressed: () => _loadAndGenerateElements(useLargeFile: false),
+                icon: const Icon(Icons.location_on),
+                label: const Text('10 Elements'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: ElevatedButton(
-                onPressed: () => _generateOverlayMarkers(25),
-                child: const Text('25 Herds'),
+              child: ElevatedButton.icon(
+                onPressed: () => _loadAndGenerateElements(useLargeFile: true),
+                icon: const Icon(Icons.location_on),
+                label: const Text('100 Elements'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        // Second row
+        // Second row - Widget and major test
         Row(
           children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: () => _generateOverlayMarkers(50),
-                child: const Text('50 Herds'),
+              child: ElevatedButton.icon(
+                onPressed: () => _generateOverlayMarkers(1000),
+                icon: const Icon(Icons.widgets),
+                label: const Text('1K Widgets'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: ElevatedButton(
-                onPressed: () => _generateOverlayMarkers(100),
-                child: const Text('100 Herds'),
+              child: ElevatedButton.icon(
+                onPressed: () => _loadAndGenerateElements(use1000File: true),
+                icon: const Icon(Icons.grid_view),
+                label: const Text('4K Elements'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
           ],

@@ -7,6 +7,8 @@ class SimpleMapState extends State<StatefulWidget> {
 
   GeoJsonSource? geoJsonSource;
   PointAnnotationManager? pointAnnotationManager;
+  PolygonAnnotationManager? polygonAnnotationManager;
+  PolylineAnnotationManager? polylineAnnotationManager;
   CameraViewportState camera = CameraViewportState(
     center: Point(coordinates: Position(-3.48, 36.76)),
     zoom: 8,
@@ -18,6 +20,10 @@ class SimpleMapState extends State<StatefulWidget> {
     this.mapboxMap = mapboxMap;
     pointAnnotationManager = await mapboxMap.annotations
         .createPointAnnotationManager();
+    polygonAnnotationManager = await mapboxMap.annotations
+        .createPolygonAnnotationManager();
+    polylineAnnotationManager = await mapboxMap.annotations
+        .createPolylineAnnotationManager();
     onMapCreated();
   }
   
