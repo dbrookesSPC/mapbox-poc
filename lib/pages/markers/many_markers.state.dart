@@ -50,3 +50,20 @@ class ManyMarkersError extends ManyMarkersState {
   @override
   List<Object> get props => [error];
 }
+
+class ManyMarkersElementsLoaded extends ManyMarkersState {
+  final int polygonCount;
+  final int markerCount;
+  final int widgetCount;
+  final int lineCount;
+
+  const ManyMarkersElementsLoaded({
+    required this.polygonCount,
+    required this.markerCount,
+    required this.widgetCount,
+    required this.lineCount,
+  });
+
+  @override
+  List<Object> get props => [polygonCount, markerCount, widgetCount, lineCount];
+}

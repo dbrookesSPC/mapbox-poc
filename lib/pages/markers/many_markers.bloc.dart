@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +10,8 @@ import 'package:here_sdk/core.dart';
 import 'package:here_sdk/mapview.dart';
 import 'many_markers.events.dart';
 import 'many_markers.state.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class ManyMarkersBloc extends Bloc<ManyMarkersEvent, ManyMarkersState> {
   MapImage? _markerImage;
@@ -20,6 +24,11 @@ class ManyMarkersBloc extends Bloc<ManyMarkersEvent, ManyMarkersState> {
   ManyMarkersBloc() : super(ManyMarkersInitial()) {
     on<GenerateMarkers>(_onGenerateMarkers);
     on<GenerateHerdWidgets>(_onGenerateHerdWidgets);
+    on<AddPolygon>(_onAddPolygon);
+    on<AddMarker>(_onAddMarker);
+    on<AddWidget>(_onAddWidget);
+    on<AddLine>(_onAddLine);
+    on<LoadJSONElementsComplete>(_onLoadJSONElementsComplete);
     on<ClearMarkers>(_onClearMarkers);
   }
 
@@ -90,6 +99,77 @@ class ManyMarkersBloc extends Bloc<ManyMarkersEvent, ManyMarkersState> {
     } catch (e) {
       emit(ManyMarkersError(error: 'Failed to generate markers: $e'));
     }
+  }
+
+  Future<void> _onAddPolygon(
+    AddPolygon event,
+    Emitter<ManyMarkersState> emit,
+  ) async {
+    try {
+      final polygon = GeoPolygon(event.points);
+      final mapPolygon = MapPolygon(polygon, Color.fromARGB(150, 255, 0, 0));
+      event.hereMapController.mapScene.addMapPolygon(mapPolygon);
+    } catch (e) {
+      emit(ManyMarkersError(error: 'Failed to add polygon: $e'));
+    }
+  }
+
+  Future<void> _onAddMarker(
+    AddMarker event,
+    Emitter<ManyMarkersState> emit,
+  ) async {
+    try {
+      // Create SVG marker based on type
+      final markerImage = await _createSvgMarker(event.markerType ?? 'marker');
+      final mapMarker = MapMarker(event.position, markerImage);
+      event.hereMapController.mapScene.addMapMarker(mapMarker);
+    } catch (e) {
+      emit(ManyMarkersError(error: 'Failed to add marker: $e'));
+    }
+  }
+
+  Future<void> _onAddWidget(
+    AddWidget event,
+    Emitter<ManyMarkersState> emit,
+  ) async {
+    try {
+      final widget = _createHerdWidget(_random.nextInt(99) + 1);
+      event.hereMapController.pinWidget(widget, event.position);
+    } catch (e) {
+      emit(ManyMarkersError(error: 'Failed to add widget: $e'));
+    }
+  }
+
+  Future<void> _onAddLine(
+    AddLine event,
+    Emitter<ManyMarkersState> emit,
+  ) async {
+    try {
+      final polyline = GeoPolyline([event.start, event.end]);
+      final lineColor = Color.fromARGB(255, 0, 0, 255);
+      final lineWidth = MapMeasureDependentRenderSize.withSingleSize(RenderSizeUnit.pixels, 5.0);
+      final lineStyle = MapPolylineSolidRepresentation(
+        lineWidth,
+        lineColor,
+        LineCap.round,
+      );
+      final mapPolyline = MapPolyline.withRepresentation(polyline, lineStyle);
+      event.hereMapController.mapScene.addMapPolyline(mapPolyline);
+    } catch (e) {
+      emit(ManyMarkersError(error: 'Failed to add line: $e'));
+    }
+  }
+
+  Future<void> _onLoadJSONElementsComplete(
+    LoadJSONElementsComplete event,
+    Emitter<ManyMarkersState> emit,
+  ) async {
+    emit(ManyMarkersElementsLoaded(
+      polygonCount: event.polygonCount,
+      markerCount: event.markerCount,
+      widgetCount: event.widgetCount,
+      lineCount: event.lineCount,
+    ));
   }
 
   Future<void> _onGenerateHerdWidgets(
@@ -289,6 +369,66 @@ class ManyMarkersBloc extends Bloc<ManyMarkersEvent, ManyMarkersState> {
     // Clear tracking lists
     _mapMarkers.clear();
     _markerPositions.clear();
+  }
+
+  // Helper method to create markers with different colors based on type
+  Future<MapImage> _createSvgMarker(String markerType) async {
+    // Use the converted PNG files from icons_png directory
+    final Map<String, String> markerAssets = {
+      'restaurant': 'assets/icons_png/restaurant.png',
+      'hospital': 'assets/icons_png/hospital.png', 
+      'school': 'assets/icons_png/school.png',
+      'park': 'assets/icons_png/park.png',
+      'bank': 'assets/icons_png/bank.png',
+      'marker': 'assets/ano.png', // fallback to default marker
+    };
+
+    final asset = markerAssets[markerType] ?? markerAssets['marker']!;
+    
+    try {
+      // Return different sized markers to distinguish types
+      final size = _getMarkerSize(markerType);
+      return MapImage.withFilePathAndWidthAndHeight(asset, size, size);
+    } catch (e) {
+      // Fallback to default marker
+      return MapImage.withFilePathAndWidthAndHeight("assets/ano.png", 48, 48);
+    }
+  }
+
+  // Helper method to get marker size based on type
+  int _getMarkerSize(String markerType) {
+    switch (markerType) {
+      case 'restaurant':
+        return 60;
+      case 'hospital':
+        return 65;
+      case 'school':
+        return 55;
+      case 'park':
+        return 70;
+      case 'bank':
+        return 50;
+      default:
+        return 60;
+    }
+  }
+
+  // Helper method to get marker color based on type
+  Color _getMarkerColor(String markerType) {
+    switch (markerType) {
+      case 'restaurant':
+        return Colors.orange;
+      case 'hospital':
+        return Colors.red;
+      case 'school':
+        return Colors.blue;
+      case 'park':
+        return Colors.green;
+      case 'bank':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
   }
 
   @override

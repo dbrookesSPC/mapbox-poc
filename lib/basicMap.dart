@@ -67,20 +67,21 @@ class SimpleMapState extends State<StatefulWidget> {
     // For example, you can initialize sources, layers, or annotations
     print("HERE Map created with center: $defaultCenter and 3D terrain enabled");
     
-    // Optional: Move to a location with interesting terrain
-    _moveToTerrainLocation();
+    // Move to Berlin area where test elements are located
+    _moveToTestElementsLocation();
   }
 
-  void _moveToTerrainLocation() {
+  void _moveToTestElementsLocation() {
     if (hereMapController != null) {
-      // Move to Swiss Alps for dramatic terrain demonstration
-      GeoCoordinates alpineLocation = GeoCoordinates(46.5197, 6.6323); // Near Mont Blanc
-      const double distanceToEarthInMeters = 50000; // Higher altitude to see terrain
+      // Move to Berlin area where our test elements are located
+      // Updated center coordinates for 1000 elements spread across wider area
+      GeoCoordinates testElementsLocation = GeoCoordinates(52.52000, 13.40500); // Berlin area center
+      const double distanceToEarthInMeters = 25000; // Much wider zoom to see all 1000 elements spread out
       MapMeasure mapMeasureZoom = MapMeasure(MapMeasureKind.distanceInMeters, distanceToEarthInMeters);
       
-      hereMapController!.camera.lookAtPointWithMeasure(alpineLocation, mapMeasureZoom);
+      hereMapController!.camera.lookAtPointWithMeasure(testElementsLocation, mapMeasureZoom);
       
-      // Apply tilted view for better terrain visibility
+      // Keep a flat view for better element visibility
       // _setTerrainFriendlyCamera(hereMapController!);
     }
   }

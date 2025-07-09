@@ -52,6 +52,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: MyHomePage(),
+      // Enable performance overlay to show FPS
+      showPerformanceOverlay: true,
     );
   }
 }

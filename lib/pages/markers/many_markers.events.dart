@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:here_sdk/core.dart';
 import 'package:here_sdk/mapview.dart';
 
 abstract class ManyMarkersEvent extends Equatable {
@@ -53,4 +54,63 @@ class ClearMarkers extends ManyMarkersEvent {
 
   @override
   List<Object?> get props => [hereMapController];
+}
+
+class AddPolygon extends ManyMarkersEvent {
+  final List<GeoCoordinates> points;
+  final HereMapController hereMapController;
+
+  const AddPolygon(this.points, this.hereMapController);
+
+  @override
+  List<Object> get props => [points, hereMapController];
+}
+
+class AddMarker extends ManyMarkersEvent {
+  final GeoCoordinates position;
+  final HereMapController hereMapController;
+  final String? markerType;
+
+  const AddMarker(this.position, this.hereMapController, {this.markerType});
+
+  @override
+  List<Object?> get props => [position, hereMapController, markerType];
+}
+
+class AddWidget extends ManyMarkersEvent {
+  final GeoCoordinates position;
+  final HereMapController hereMapController;
+
+  const AddWidget(this.position, this.hereMapController);
+
+  @override
+  List<Object> get props => [position, hereMapController];
+}
+
+class AddLine extends ManyMarkersEvent {
+  final GeoCoordinates start;
+  final GeoCoordinates end;
+  final HereMapController hereMapController;
+
+  const AddLine(this.start, this.end, this.hereMapController);
+
+  @override
+  List<Object> get props => [start, end, hereMapController];
+}
+
+class LoadJSONElementsComplete extends ManyMarkersEvent {
+  final int polygonCount;
+  final int markerCount;
+  final int widgetCount;
+  final int lineCount;
+
+  const LoadJSONElementsComplete({
+    required this.polygonCount,
+    required this.markerCount,
+    required this.widgetCount,
+    required this.lineCount,
+  });
+
+  @override
+  List<Object> get props => [polygonCount, markerCount, widgetCount, lineCount];
 }
